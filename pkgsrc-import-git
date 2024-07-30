@@ -18,8 +18,8 @@ main() {
 	git commit -m "Add FUNDING.yml."
 	gh repo create "pkgsrc-${pkgname}" --public --description "${pkgcomment}" --disable-wiki --homepage "https://pkgsrc.se/${pkgpath}"
 	git remote add origin "git@github.com:schmonz/pkgsrc-${pkgname}"
-	git push -u origin main
-	echo >&2 "https://github.com/schmonz/pkgsrc-${pkgname} => manually turn off Releases, Packages, and Environments"
+	git push -u origin HEAD
+	echo >&2 "https://github.com/schmonz/pkgsrc-${pkgname} => manually turn off Releases, Packages, and Deployments"
 }
 
 main "$@"
