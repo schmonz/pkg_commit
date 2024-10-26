@@ -5,7 +5,7 @@ set -e
 main() {
 	local pkgpath pkgname pkgcomment
 	pkgpath=$(make show-var VARNAME=PKGPATH)
-	pkgname=$(make show-var VARNAME=PKGBASE)
+	pkgname=$(make show-var VARNAME=PKGBASE | sed -e 's|^py[0-9]*-|py-|')
 	pkgcomment=$(make show-var VARNAME=COMMENT)
 
 	git init

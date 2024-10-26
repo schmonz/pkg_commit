@@ -77,7 +77,7 @@ make_changes_entry() {
 
 main() {
 	local pkgname pkgcomment commitfile
-	pkgname=$(make show-var VARNAME=PKGBASE)
+	pkgname=$(make show-var VARNAME=PKGBASE | sed -e 's|^py[0-9]*-|py-|')
 	pkgcomment=$(make show-var VARNAME=COMMENT)
 	commitfile=commit
 
