@@ -49,6 +49,7 @@ update_category_makefile() {
 
 	(
 		cd ..
+		cvs up Makefile
 		look_for_this="$(this_is_the_package_to_insert_before ${pkgname})"
 		awk "/^SUBDIR\+=	${look_for_this}\$/{print \"SUBDIR+=	${pkgname}\"}1" \
 			< Makefile > Makefile.tmp
