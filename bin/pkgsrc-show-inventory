@@ -14,13 +14,21 @@ count_branches() {
 	)
 }
 
+show_if_on_main_and_uncommitted() {
+	(
+		cd $1
+		[ main = "$(git rev-parse --abbrev-ref HEAD)" ] && [ "" = "$(git status --porcelain)" ] || echo "needs commit: $1"
+	)
+}
+
 show_if_more_than_one_branch() {
-	[ 1 -eq $(count_branches $1) ] || echo $1
+	[ 1 -eq $(count_branches $1) ] || echo "has branches: $1"
 }
 
 main() {
 	cd ~/trees/pkgsrc-cvs
 	for i in $(all_my_little_repos); do
+		show_if_on_main_and_uncommitted "$i"
 		show_if_more_than_one_branch "$i"
 	done
 }
