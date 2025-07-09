@@ -1,0 +1,66 @@
+#!/bin/sh
+
+set -e
+
+LIST_HOST='https://mail-index.netbsd.org'
+LIST_INDEX="${LIST_HOST}/pkgsrc-bulk/tindex.html"
+MYSELF='schmonz@NetBSD.org'
+MOST_RECENT_N_BUILDS=5
+
+fetch_to_stdout() {
+	url="$1"; shift
+	fetch -q -o - "${url}"
+}
+
+fetch_list_index() {
+	fetch_to_stdout "${LIST_INDEX}"
+}
+
+extract_list_messages() {
+	grep ' href="/pkgsrc-bulk/[0-9]\+/[0-9]\+/[0-9]\+/msg[0-9]\+\.html">pkgsrc-' \
+	| sed -e 's|.* href="||' -e 's|">pkgsrc-.*||'
+}
+
+extract_report_link() {
+	slug="$1"; shift
+
+	fetch_to_stdout "${LIST_HOST}${slug}" \
+	| grep 'Full report: ' \
+	| sed -e 's|.* href="||' -e 's|">http.*||'
+}
+
+extract_build_failures() {
+	report_url="$1"; shift
+	base_url=$(dirname $(dirname ${report_url}))
+
+	fetch_to_stdout "${report_url}" \
+	| html2text \
+	| grep "${MYSELF} | failed" \
+	| sed -e 's|.*(||' -e 's|).*||' -e "s|^\.\./|${base_url}/|g"
+}
+
+format_build_log() {
+	log_url="$1"; shift
+
+	echo "-----"
+	echo
+	echo "# <${build_log}>"
+	echo
+	fetch_to_stdout "${build_log}" \
+	| sed -e 's|^|    |g'
+	echo
+	echo
+}
+
+
+main() {
+	for bulk_build in $(fetch_list_index | extract_list_messages | head -${MOST_RECENT_N_BUILDS}); do
+		bulk_report=$(extract_report_link "${bulk_build}")
+		for build_log in $(extract_build_failures "${bulk_report}"); do
+			format_build_log "${build_log}"
+		done
+	done
+}
+
+main "$@"
+exit $?
