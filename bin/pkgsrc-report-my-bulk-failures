@@ -4,8 +4,27 @@ set -e
 
 LIST_HOST='https://mail-index.netbsd.org'
 LIST_INDEX="${LIST_HOST}/pkgsrc-bulk/tindex.html"
-MYSELF='schmonz@NetBSD.org'
-MOST_RECENT_N_BUILDS=5
+DEFAULT_MAINTAINER='schmonz@NetBSD.org'
+DEFAULT_N_BUILDS=5
+
+usage() {
+	cat << EOF
+Usage: $0 [OPTIONS]
+
+Report recent pkgsrc build failures for a given package maintainer.
+
+Options:
+  -m, --maintainer EMAIL    Maintainer email address (default: ${DEFAULT_MAINTAINER})
+  -n, --builds COUNT        Number of recent builds to check (default: ${DEFAULT_N_BUILDS})
+  -h, --help                Show this help message
+
+Examples:
+  $0
+  $0 --maintainer user@example.com
+  $0 --builds 10
+  $0 -m user@example.com -n 3
+EOF
+}
 
 fetch_to_stdout() {
 	url="$1"; shift
@@ -31,11 +50,12 @@ extract_report_link() {
 
 extract_build_failures() {
 	report_url="$1"; shift
+	maintainer="$1"; shift
 	base_url=$(dirname $(dirname ${report_url}))
 
 	fetch_to_stdout "${report_url}" \
 	| html2text \
-	| grep "${MYSELF} | failed" \
+	| grep "${maintainer} | failed" \
 	| sed -e 's|.*(||' -e 's|).*||' -e "s|^\.\./|${base_url}/|g"
 }
 
@@ -44,9 +64,9 @@ format_build_log() {
 
 	echo "-----"
 	echo
-	echo "# <${build_log}>"
+	echo "# <${log_url}>"
 	echo
-	fetch_to_stdout "${build_log}" \
+	fetch_to_stdout "${log_url}" \
 	| sed -e 's|^|    |g'
 	echo
 	echo
@@ -54,9 +74,71 @@ format_build_log() {
 
 
 main() {
-	for bulk_build in $(fetch_list_index | extract_list_messages | head -${MOST_RECENT_N_BUILDS}); do
+	# Initialize variables with defaults
+	maintainer="${DEFAULT_MAINTAINER}"
+	n_builds="${DEFAULT_N_BUILDS}"
+
+	# Parse command line arguments
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-m|--maintainer)
+				if [ -n "$2" ] && [ "${2#-}" = "$2" ]; then
+					maintainer="$2"
+					shift 2
+				else
+					echo "Error: --maintainer requires a non-empty option argument" >&2
+					usage >&2
+					exit 1
+				fi
+				;;
+			-n|--builds)
+				if [ -n "$2" ] && [ "${2#-}" = "$2" ]; then
+					n_builds="$2"
+					shift 2
+				else
+					echo "Error: --builds requires a non-empty option argument" >&2
+					usage >&2
+					exit 1
+				fi
+				;;
+			-h|--help)
+				usage
+				exit 0
+				;;
+			--)
+				shift
+				break
+				;;
+			-*)
+				echo "Error: Unknown option: $1" >&2
+				usage >&2
+				exit 1
+				;;
+			*)
+				echo "Error: Unexpected argument: $1" >&2
+				usage >&2
+				exit 1
+				;;
+		esac
+	done
+
+	# Validate n_builds is a positive integer
+	case "${n_builds}" in
+		''|*[!0-9]*)
+			echo "Error: Number of builds must be a positive integer, got: ${n_builds}" >&2
+			usage >&2
+			exit 1
+			;;
+		0)
+			echo "Error: Number of builds must be greater than 0" >&2
+			usage >&2
+			exit 1
+			;;
+	esac
+
+	for bulk_build in $(fetch_list_index | extract_list_messages | head -${n_builds}); do
 		bulk_report=$(extract_report_link "${bulk_build}")
-		for build_log in $(extract_build_failures "${bulk_report}"); do
+		for build_log in $(extract_build_failures "${bulk_report}" "${maintainer}"); do
 			format_build_log "${build_log}"
 		done
 	done
